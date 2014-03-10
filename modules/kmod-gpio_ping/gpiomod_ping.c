@@ -2,7 +2,7 @@
  * Basic Linux Kernel module using GPIO interrupts.
  *
  * Author:
- * 	Stefan Wendler (devnull@kaltpost.de)
+ * 	Shuai Xiao (iamhihi@gmail.com)
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -19,32 +19,100 @@
 #include <linux/kernel.h>
 #include <linux/gpio.h>
 #include <linux/interrupt.h> 
+#include <linux/time.h>
 
-/* Define GPIOs for LEDs */
+#define TRIGGER_PIN 23
+#define ECHO_PIN  24
+#define TIMEOUT 999 /* any value other than LOW or HIGH */
+
+#define IN  0
+#define OUT 1
+
+#define LOW  0
+#define HIGH 1
+
+/* Task handle to identify thread */
+static struct task_struct *ts = NULL;
+
+static volatile unsigned long start = 0;
+static volatile unsigned long now = 0;
+static volatile unsigned int done = 0;
+
+//us
+volatile unsigned long GetTimeStamp(void) {
+    struct timeval tv;
+    do_gettimeofday(&tv);
+    return tv.tv_sec*(unsigned long)1000000+tv.tv_usec;
+}
+
+/* Define GPIOs for Trigger */
 static struct gpio leds[] = {
-		{  4, GPIOF_OUT_INIT_LOW, "LED 1" },
+		{ TRIGGER_PIN, GPIOF_OUT_INIT_LOW, "Trigger" },
 };
 
-/* Define GPIOs for BUTTONS */
+/* Define GPIOs for Echo */
 static struct gpio buttons[] = {
-		{ 17, GPIOF_IN, "BUTTON 1" },	// turns LED on
-		{ 18, GPIOF_IN, "BUTTON 2" },	// turns LED off
+		{ ECHO_PIN, GPIOF_IN, "Echo" },
 };
 
 /* Later on, the assigned IRQ numbers for the buttons are stored here */
-static int button_irqs[] = { -1, -1 };
+static int button_irqs[] = { -1};
 
+static int led_thread(void *data)
+{
+	printk(KERN_INFO "%s\n", __func__);
+    
+    int pulsewidth;
+    float timeInSecond;
+    float distance;
+    
+    // loop until killed ...
+    for( ; ; ) {
+        if(kthread_should_stop()){
+            return;
+        }
+
+        //# Set trigger to False (Low)
+        gpio_set_value(leds[0].gpio, LOW);
+        //# Allow module to settle
+        mdelay(500);
+        
+        //# Send 10us pulse to trigger
+        /* trigger reading */
+        gpio_set_value(leds[0].gpio, HIGH);
+        udelay(10);
+        gpio_set_value(leds[0].gpio, LOW);
+        
+        while(done == 0){
+            mdelay(100);
+        }
+        
+        pulsewidth = abs(now - start);
+        timeInSecond = (float)(pulsewidth / 1000000.00F);
+        distance = timeInSecond * 34000.00F;
+        distance = distance / 2.00;
+        printk(KERN_INFO "Ping distance = %.2f cm\n", distance);
+    }
+    
+	return 0;
+}
 /*
  * The interrupt service routine called on button presses
  */
 static irqreturn_t button_isr(int irq, void *data)
 {
-	if(irq == button_irqs[0] && !gpio_get_value(leds[0].gpio)) {
-			gpio_set_value(leds[0].gpio, 1);
-	}
-	else if(irq == button_irqs[1] && gpio_get_value(leds[0].gpio)) {
-			gpio_set_value(leds[0].gpio, 0);
-	}
+    int newState;
+    
+    newState = gpio_set_value(buttons[0].gpio);
+    
+    if(newState == HIGH){
+        done = 1;
+        now =  GetTimeStamp();
+    }
+    else if(newState == LOW)
+    {
+        start = GetTimeStamp();
+    }
 
 	return IRQ_HANDLED;
 }
@@ -93,23 +161,13 @@ static int __init gpiomode_init(void)
 		printk(KERN_ERR "Unable to request IRQ: %d\n", ret);
 		goto fail2;
 	}
-
-
-	ret = gpio_to_irq(buttons[1].gpio);
-
-	if(ret < 0) {
-		printk(KERN_ERR "Unable to request IRQ: %d\n", ret);
-		goto fail2;
-	}
-		
-	button_irqs[1] = ret;
-
-	printk(KERN_INFO "Successfully requested BUTTON2 IRQ # %d\n", button_irqs[1]);
-
-	ret = request_irq(button_irqs[1], button_isr, IRQF_TRIGGER_RISING | IRQF_DISABLED, "gpiomod#button2", NULL);
-
-	if(ret) {
-		printk(KERN_ERR "Unable to request IRQ: %d\n", ret);
+    
+    ts = kthread_create(led_thread, NULL, "led_thread");
+	if(ts) {
+		wake_up_process(ts);
+    }
+	else {
+		printk(KERN_ERR "Unable to create thread\n");
 		goto fail3;
 	}
 
@@ -138,21 +196,17 @@ static void __exit gpiomode_exit(void)
 	printk(KERN_INFO "%s\n", __func__);
 
 	// free irqs
-	free_irq(button_irqs[0], NULL);
-	free_irq(button_irqs[1], NULL);
-	
-	// turn all LEDs off
-	for(i = 0; i < ARRAY_SIZE(leds); i++) {
-		gpio_set_value(leds[i].gpio, 0); 
+    for(i = 0; i < ARRAY_SIZE(button_irqs); i++) {
+		free_irq(button_irqs[0], NULL);
 	}
-	
+
 	// unregister
 	gpio_free_array(leds, ARRAY_SIZE(leds));
 	gpio_free_array(buttons, ARRAY_SIZE(buttons));
 }
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Stefan Wendler");
+MODULE_AUTHOR("Shuai Xiao");
 MODULE_DESCRIPTION("Basic Linux Kernel module using GPIO interrupts");
 
 module_init(gpiomode_init);
