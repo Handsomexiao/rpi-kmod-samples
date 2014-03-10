@@ -162,7 +162,7 @@ static int __init gpiomode_init(void)
 		goto fail2;
 	}
     
-    ts = kthread_create(led_thread, NULL, "led_thread");
+    ts = kthread_create(led_thread, NULL, "irqPing");
 	if(ts) {
 		wake_up_process(ts);
     }
