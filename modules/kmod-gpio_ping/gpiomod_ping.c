@@ -65,13 +65,13 @@ static int led_thread(void *data)
 	printk(KERN_INFO "%s\n", __func__);
     
     int pulsewidth;
-    float timeInSecond;
-    float distance;
+    double timeInSecond;
+    double distance;
     
     // loop until killed ...
     for( ; ; ) {
         if(kthread_should_stop()){
-            return;
+            return 0;
         }
 
         //# Set trigger to False (Low)
@@ -90,7 +90,7 @@ static int led_thread(void *data)
         }
         
         pulsewidth = abs(now - start);
-        timeInSecond = (float)(pulsewidth / 1000000.00F);
+        timeInSecond = (double)(pulsewidth / 1000000.00F);
         distance = timeInSecond * 34000.00F;
         distance = distance / 2.00;
         printk(KERN_INFO "Ping distance = %.2f cm\n", distance);
