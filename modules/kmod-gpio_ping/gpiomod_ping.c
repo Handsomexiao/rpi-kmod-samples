@@ -157,7 +157,7 @@ static int __init gpiomode_init(void)
 
 	printk(KERN_INFO "Successfully requested BUTTON1 IRQ # %d\n", button_irqs[0]);
 
-	ret = request_irq(button_irqs[0], button_isr, IRQF_TRIGGER_RISING | IRQF_DISABLED, "gpiomod#button1", NULL);
+	ret = request_irq(button_irqs[0], button_isr, IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING | IRQF_DISABLED, "gpiomod#button1", NULL);
 
 	if(ret) {
 		printk(KERN_ERR "Unable to request IRQ: %d\n", ret);
