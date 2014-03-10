@@ -65,8 +65,8 @@ static int led_thread(void *data)
 	printk(KERN_INFO "%s\n", __func__);
     
     int pulsewidth;
-    double timeInSecond;
-    double distance;
+    int timeInSecond;
+    int distance;
     
     // loop until killed ...
     for( ; ; ) {
@@ -90,8 +90,8 @@ static int led_thread(void *data)
         }
         
         pulsewidth = abs(now - start);
-        timeInSecond = (double)(pulsewidth / 1000000);
-        distance = timeInSecond * 34000;
+        timeInSecond = (int)(pulsewidth * 34000 / 10000);
+        distance = timeInSecond;
         distance = distance / 2;
         printk(KERN_INFO "Ping distance = %d cm\n", distance);
     }
