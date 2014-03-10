@@ -90,10 +90,10 @@ static int led_thread(void *data)
         }
         
         pulsewidth = abs(now - start);
-        timeInSecond = (double)(pulsewidth / 1000000.00F);
+        timeInSecond = (double)(pulsewidth / 1000000);
         distance = timeInSecond * 34000;
         distance = distance / 2;
-        printk(KERN_INFO "Ping distance = %.2 cm\n", distance);
+        printk(KERN_INFO "Ping distance = %d cm\n", distance);
     }
     
 	return 0;
