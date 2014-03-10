@@ -20,6 +20,8 @@
 #include <linux/gpio.h>
 #include <linux/interrupt.h> 
 #include <linux/time.h>
+#include <linux/kthread.h>
+#include <linux/delay.h>
 
 #define TRIGGER_PIN 23
 #define ECHO_PIN  24
@@ -103,7 +105,7 @@ static irqreturn_t button_isr(int irq, void *data)
 {
     int newState;
     
-    newState = gpio_set_value(buttons[0].gpio);
+    newState = gpio_get_value(buttons[0].gpio);
     
     if(newState == HIGH){
         done = 1;
